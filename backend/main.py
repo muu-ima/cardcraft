@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -6,9 +6,12 @@ from sqlmodel import Session, select
 from db import init_db, get_session
 from models import Card
 
-
+# =======================================
+# FastAPI アプリ本体
+# =======================================
 app = FastAPI()
 
+# CORS（Next.js から叩けるようにする）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -17,41 +20,57 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class CardSnapshot(BaseModel):
+# =======================================
+# Pydantic スキーマ（用途ごとに分割）
+# =======================================
+class CardBase(BaseModel): 
     name: str
     x: int
     y: int
     template: str
 
+class CardCreate(CardBase):
+    """POST /snapshot 用"""
+    pass
 
-class CardRead(BaseModel):
+class CardUpdate(CardBase):
+    """UPDATE 用 (PUT /cards/{id})"""
+    pass
+
+class CardRead(CardBase):
+    """READ 用 (レスポンス用。 id を含む)"""
     id: int
-    name: str
-    x: int
-    y: int
-    template: str
 
     class Config:
-        from_attributes = True  # SQLModel → Pydantic 変換用
+        from_attributes = True # SQLModel → Pydantic 変換用
 
-
+# =======================================
+# 起動時に DB 初期化
+# =======================================
 @app.on_event("startup")
 def on_startup():
     init_db()
 
-
+# =======================================
+# ヘルスチェック
+# =======================================
 @app.get("/")
 def root():
     return {"message": "FastAPI + PostgreSQL + SQLModel ready"}
 
 
-# ---- CREATE（保存） ----
+# =======================================
+# CREATE（新規保存）: /snapshot
+# =======================================
 @app.post("/snapshot", response_model=CardRead)
 def save_snapshot(
-    snapshot: CardSnapshot,
+    snapshot: CardBase,
     session: Session = Depends(get_session),
 ):
+    """
+    名刺のスナップショットを新規作成。
+    フロントの Editor から呼んでいるエンドポイント。
+    """
     card = Card(**snapshot.dict())
     session.add(card)
     session.commit()
@@ -59,8 +78,77 @@ def save_snapshot(
     return card
 
 
-# ---- READ（一覧） ----
+# =======================================
+# READ（一覧）: /cards
+# =======================================
 @app.get("/cards", response_model=list[CardRead])
 def list_cards(session: Session = Depends(get_session)):
+    """
+    作成済みカードを新しい順に一覧取得。
+    """
     cards = session.exec(select(Card).order_by(Card.id.desc())).all()
     return cards
+
+# =======================================
+# READ（1件）: /cards/{card_id}
+# =======================================
+@app.get("/cards/{card_id}", response_model=CardRead)
+def get_card(
+    card_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    単一のカードを ID で取得。
+    /cards/[id]/page.tsx から使う。
+    """
+    card = session.get(Card, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return card
+
+
+# =======================================
+# UPDATE（更新）: /cards/{card_id}
+# =======================================
+@app.put("/cards/{card_id}", response_model=CardRead)
+def update_card(
+    card_id: int, 
+    card: CardBase, 
+    session: Session = Depends(get_session),
+):
+    """
+    既存カードを上書き更新。
+    将来的に Editor から「保存」ボタンで叩く想定。
+    """
+    db_card = session.get(Card, card_id)
+    if not db_card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    # フィールドを一括で上書き
+    for key, value in card.dict().items():
+        setattr(card, key, value)
+
+    session.add(db_card)
+    session.commit()
+    session.refresh(db_card)
+    return db_card
+
+# =======================================
+# DELETE（削除）: /cards/{card_id}（オマケ）
+# =======================================
+@app.delete("/cards/{card_id}")
+def delete_card(
+    card_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    いらなくなったカードを削除するためのエンドポイント。
+    まだフロントからは使っていなくても OK。
+    """
+    card = session.get(Card, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    session.delete(card)
+    session.commit()
+    return{"ok": True}

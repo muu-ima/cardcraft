@@ -1,6 +1,10 @@
 services:
   backend:
     build: ./backend
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000  # ★ reload
+    working_dir: /app
+    volumes:
+      - ./backend:/app   # ★ ホストの backend をそのまま使う
     ports:
       - "8000:8000"
     environment:
@@ -10,10 +14,17 @@ services:
 
   frontend:
     build: ./frontend
+    command: npm run dev                       # ★ 明示しておくと安心
+    working_dir: /app
+    volumes:
+      - ./frontend:/app                        # ★ ホストの frontend を使う
+      - /app/node_modules                      # ★ node_modules はコンテナ側
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000  
 
   db:
     image: postgres:16-alpine
@@ -22,7 +33,7 @@ services:
       POSTGRES_USER: card_user
       POSTGRES_PASSWORD: card_pass
     ports:
-      - "5432:5432"     # 開発用。外から繋がないなら消してもOK
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

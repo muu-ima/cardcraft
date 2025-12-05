@@ -60,9 +60,7 @@ export default function CardsPage() {
         </div>
 
         {/* 状態表示 */}
-        {loading && (
-          <p className="text-sm text-gray-500">読み込み中です...</p>
-        )}
+        {loading && <p className="text-sm text-gray-500">読み込み中です...</p>}
 
         {error && (
           <p className="text-sm text-red-600 border border-red-200 bg-red-50 px-3 py-2 rounded">
@@ -85,9 +83,7 @@ export default function CardsPage() {
                     className="rounded border border-gray-200 bg-white p-4 shadow-sm flex flex-col justify-between"
                   >
                     <div className="space-y-1">
-                      <div className="text-xs text-gray-400">
-                        ID: {card.id}
-                      </div>
+                      <div className="text-xs text-gray-400">ID: {card.id}</div>
                       <div className="text-lg font-semibold">
                         {card.name || "（名前なし）"}
                       </div>
@@ -101,13 +97,12 @@ export default function CardsPage() {
 
                     {/* 再編集用のリンクは後で実装する想定 */}
                     <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 cursor-not-allowed"
-                        title="今はダミー（後で再編集に使う）"
+                      <Link
+                        href={`/editor?id=${card.id}`}
+                        className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
                       >
-                        編集（準備中）
-                      </button>
+                        編集
+                      </Link>
                     </div>
                   </li>
                 ))}

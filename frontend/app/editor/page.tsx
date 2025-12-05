@@ -2,11 +2,17 @@
 
 import { Stage, Layer, Text, Rect } from "react-konva";
 import { TemplateImage } from "./TemplateImage";
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Stage as KonvaStage } from "konva/lib/Stage";
 import Link from "next/link"
+import { useSearchParams } from "next/navigation";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function Editor() {
+  const serchParams = useSearchParams();
+  const editId = serchParams.get("id");
+
   const [name, setName] = useState("山田太郎");
   const [textPos, setTextPos] = useState({ x: 100, y: 300 });
 
@@ -16,6 +22,19 @@ export default function Editor() {
   const CARD_WIDTH = 800;
   const CARD_HEIGHT = 400;
 
+  useEffect(() => {
+    if (!editId) return; 
+    
+    (async () => {
+      const res = await fetch(`${API_BASE}/cards/${editId}`);
+      if (!res.ok) return;
+
+      const card = await res.json();
+      setName(card.name);
+      setTextPos({ x: card.x, y:card.y });
+      // templateも持ってるならここで切り替え
+    }) ();
+  }, [editId]);
   // Konva の Stage インスタンスを参照
   const stageRef = useRef<KonvaStage | null>(null);
 
