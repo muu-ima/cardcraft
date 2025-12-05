@@ -134,21 +134,17 @@ def update_card(
     return db_card
 
 # =======================================
-# DELETE（削除）: /cards/{card_id}（オマケ）
+# DELETE: /cards/{card_id}
 # =======================================
-@app.delete("/cards/{card_id}")
+@app.delete("/cards/{card_id}", status_code=204)
 def delete_card(
     card_id: int,
     session: Session = Depends(get_session),
 ):
-    """
-    いらなくなったカードを削除するためのエンドポイント。
-    まだフロントからは使っていなくても OK。
-    """
-    card = session.get(Card, card_id)
-    if not card:
+    db_card = session.get(Card, card_id)
+    if not db_card:
         raise HTTPException(status_code=404, detail="Card not found")
-    
-    session.delete(card)
+
+    session.delete(db_card)
     session.commit()
-    return{"ok": True}
+    # 204 No Content なので return は不要

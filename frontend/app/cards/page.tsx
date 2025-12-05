@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
 type Card = {
   id: number;
   name: string;
@@ -11,17 +14,19 @@ type Card = {
   template: string;
 };
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-
 export default function CardsPage() {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingID, setDeletingId] = useState<number | null>(null);
 
+  // ---- 一覧取得 ----
   useEffect(() => {
     const fetchCards = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
         const res = await fetch(`${API_BASE}/cards`, {
           // 毎回最新を欲しいので no-store
           cache: "no-store",
@@ -43,6 +48,31 @@ export default function CardsPage() {
 
     fetchCards();
   }, []);
+
+    // ---- 削除処理 ----
+    const handleDelete = async(id: number) => {
+      const ok = window.confirm("このスナップショットを削除しますか？");
+      if (!ok) return;
+
+      setDeletingId(id);
+      try {
+        const res = await fetch(`${API_BASE}/cards/${id}`, {
+          method: "DELETE",
+        });
+
+        if(!res.ok && res.status !== 204) {
+          throw new Error("削除に失敗しました");
+        }
+
+        // フロント側の一覧からも削除
+        setCards((prev) => prev.filter((card) => card.id !==id));
+      } catch (e) {
+        console.error(e);
+        alert("削除に失敗しました");
+      } finally {
+        setDeletingId(null);
+      }
+    };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -103,6 +133,16 @@ export default function CardsPage() {
                       >
                         編集
                       </Link>
+                     {/* 削除ボタン */}
+                     <button
+                     type="button"
+                     onClick={() => handleDelete(card.id)}
+                     disabled={deletingID === card.id}
+                     className="rounded border border-red-300 px-3 py-1 text-xs
+                      text-red-600 hover:bg-red-50 disabled:opacity-60"
+                     >
+                      {deletingID === card.id ? "削除中..." : "削除"}
+                     </button>
                     </div>
                   </li>
                 ))}
