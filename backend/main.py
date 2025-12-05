@@ -64,7 +64,7 @@ def root():
 # =======================================
 @app.post("/snapshot", response_model=CardRead)
 def save_snapshot(
-    snapshot: CardBase,
+    snapshot: CardCreate,
     session: Session = Depends(get_session),
 ):
     """
@@ -113,7 +113,7 @@ def get_card(
 @app.put("/cards/{card_id}", response_model=CardRead)
 def update_card(
     card_id: int, 
-    card: CardBase, 
+    card: CardUpdate, 
     session: Session = Depends(get_session),
 ):
     """
