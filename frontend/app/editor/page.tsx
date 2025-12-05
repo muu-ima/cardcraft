@@ -4,6 +4,7 @@ import { Stage, Layer, Text, Rect } from "react-konva";
 import { TemplateImage } from "./TemplateImage";
 import { useState, useRef } from "react";
 import type { Stage as KonvaStage } from "konva/lib/Stage";
+import Link from "next/link"
 
 export default function Editor() {
   const [name, setName] = useState("山田太郎");
@@ -65,6 +66,10 @@ export default function Editor() {
   return (
     <div className="p-6 flex flex-col items-center space-y-4">
       <h1 className="text-2xl font-bold">名刺エディタ（仮）</h1>
+
+      <Link href="/cards" className="text-xs text-blue-600 hover:underline">
+        保存済みスナップショット一覧を見る
+      </Link>
 
       <input
         type="text"
