@@ -1,49 +1,53 @@
+// app/editor/page.tsx
 "use client";
 
 import { Stage, Layer, Text, Rect } from "react-konva";
 import { TemplateImage } from "./TemplateImage";
 import { useState, useEffect, useRef } from "react";
 import type { Stage as KonvaStage } from "konva/lib/Stage";
-import Link from "next/link"
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function Editor() {
-  const serchParams = useSearchParams();
-  const editId = serchParams.get("id");
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id");
 
   const [name, setName] = useState("山田太郎");
   const [textPos, setTextPos] = useState({ x: 100, y: 300 });
-
-  // ★ 追加：送信中かどうか
   const [sending, setSending] = useState(false);
 
   const CARD_WIDTH = 800;
   const CARD_HEIGHT = 400;
 
-  useEffect(() => {
-    if (!editId) return; 
-    
-    (async () => {
-      const res = await fetch(`${API_BASE}/cards/${editId}`);
-      if (!res.ok) return;
-
-      const card = await res.json();
-      setName(card.name);
-      setTextPos({ x: card.x, y:card.y });
-      // templateも持ってるならここで切り替え
-    }) ();
-  }, [editId]);
-  // Konva の Stage インスタンスを参照
   const stageRef = useRef<KonvaStage | null>(null);
 
-  // ★ PNG ダウンロード
+  // ---- 編集モードのとき、既存データを読み込む ----
+  useEffect(() => {
+    if (!editId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/cards/${editId}`);
+        if (!res.ok) return; // 404 などは一旦無視
+
+        const card = await res.json();
+        setName(card.name);
+        setTextPos({ x: card.x, y: card.y });
+        // TODO: template も複数対応したらここで切り替え
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [editId]);
+
+  // ---- PNG ダウンロード ----
   const handleDownload = () => {
     const stage = stageRef.current;
     if (!stage) return;
 
-    // 高解像度で取りたいので pixelRatio を 2 にしておく
     const dataURL = stage.toDataURL({
       pixelRatio: 2,
     });
@@ -56,27 +60,42 @@ export default function Editor() {
     document.body.removeChild(link);
   };
 
-  // ★ 追加：FastAPI にスナップショット送信
-  const handleSendSnapshot = async () => {
+  // ---- 保存（新規 or 更新） ----
+  const handleSave = async () => {
     setSending(true);
     try {
-      const res = await fetch("http://localhost:8000/snapshot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          x: textPos.x,
-          y: textPos.y,
-          template: "cocco-bg-11.png",
-        }),
-      });
+      const payload = {
+        name,
+        x: textPos.x,
+        y: textPos.y,
+        template: "cocco-bg-11.png",
+      };
 
-      const data = await res.json();
-      console.log("snapshot response:", data);
-      alert("スナップショット送信しました（まだ保存はしていません）");
+      const isEdit = Boolean(editId);
+
+      const res = await fetch(
+        isEdit ? `${API_BASE}/cards/${editId}` : `${API_BASE}/snapshot`,
+        {
+          method: isEdit ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!res.ok) {
+        alert("保存に失敗しました");
+        return;
+      }
+
+      const saved = await res.json();
+      console.log("saved card:", saved);
+
+      alert(isEdit ? "更新しました" : "保存しました");
+      // 好みで：保存後に一覧へ戻すなら
+      // router.push("/cards");
     } catch (e) {
       console.error(e);
-      alert("送信に失敗しました");
+      alert("通信エラーが発生しました");
     } finally {
       setSending(false);
     }
@@ -101,7 +120,6 @@ export default function Editor() {
 
       {/* ボタンを2つ並べる */}
       <div className="flex gap-2">
-        {/* ★ PNG ダウンロードボタン */}
         <button
           onClick={handleDownload}
           className="px-4 py-2 rounded bg-blue-600 text-white text-sm shadow hover:bg-blue-700"
@@ -109,13 +127,12 @@ export default function Editor() {
           PNGとしてダウンロード
         </button>
 
-        {/* ★ 追加：スナップショット送信ボタン */}
         <button
-          onClick={handleSendSnapshot}
+          onClick={handleSave}
           disabled={sending}
           className="px-4 py-2 rounded bg-green-600 text-white text-sm shadow hover:bg-green-700 disabled:opacity-60"
         >
-          {sending ? "送信中..." : "スナップショット送信"}
+          {sending ? "保存中..." : editId ? "更新する" : "保存する"}
         </button>
       </div>
 
@@ -123,20 +140,13 @@ export default function Editor() {
         className="bg-white shadow mt-4"
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
       >
-        <Stage
-          width={CARD_WIDTH}
-          height={CARD_HEIGHT}
-          ref={stageRef} // ★ ここ大事
-        >
+        <Stage width={CARD_WIDTH} height={CARD_HEIGHT} ref={stageRef}>
           <Layer>
-            {/* 背景画像 */}
             <TemplateImage
               src="/cocco-bg-11.png"
               width={CARD_WIDTH}
               height={CARD_HEIGHT}
             />
-
-            {/* テキスト（ドラッグで移動） */}
             <Text
               text={name}
               x={textPos.x}
@@ -149,8 +159,6 @@ export default function Editor() {
               fontStyle="bold"
               fill="black"
             />
-
-            {/* 枠線 */}
             <Rect
               x={0}
               y={0}
