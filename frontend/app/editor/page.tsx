@@ -9,6 +9,9 @@ export default function Editor() {
   const [name, setName] = useState("山田太郎");
   const [textPos, setTextPos] = useState({ x: 100, y: 300 });
 
+  // ★ 追加：送信中かどうか
+  const [sending, setSending] = useState(false);
+
   const CARD_WIDTH = 800;
   const CARD_HEIGHT = 400;
 
@@ -33,6 +36,32 @@ export default function Editor() {
     document.body.removeChild(link);
   };
 
+  // ★ 追加：FastAPI にスナップショット送信
+  const handleSendSnapshot = async () => {
+    setSending(true);
+    try {
+      const res = await fetch("http://localhost:8000/snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          x: textPos.x,
+          y: textPos.y,
+          template: "cocco-bg-11.png",
+        }),
+      });
+
+      const data = await res.json();
+      console.log("snapshot response:", data);
+      alert("スナップショット送信しました（まだ保存はしていません）");
+    } catch (e) {
+      console.error(e);
+      alert("送信に失敗しました");
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="p-6 flex flex-col items-center space-y-4">
       <h1 className="text-2xl font-bold">名刺エディタ（仮）</h1>
@@ -46,13 +75,25 @@ export default function Editor() {
         placeholder="名前を入力（最大9文字）"
       />
 
-      {/* ★ PNG ダウンロードボタン */}
-      <button
-        onClick={handleDownload}
-        className="px-4 py-2 rounded bg-blue-600 text-white text-sm shadow hover:bg-blue-700"
-      >
-        PNGとしてダウンロード
-      </button>
+      {/* ボタンを2つ並べる */}
+      <div className="flex gap-2">
+        {/* ★ PNG ダウンロードボタン */}
+        <button
+          onClick={handleDownload}
+          className="px-4 py-2 rounded bg-blue-600 text-white text-sm shadow hover:bg-blue-700"
+        >
+          PNGとしてダウンロード
+        </button>
+
+        {/* ★ 追加：スナップショット送信ボタン */}
+        <button
+          onClick={handleSendSnapshot}
+          disabled={sending}
+          className="px-4 py-2 rounded bg-green-600 text-white text-sm shadow hover:bg-green-700 disabled:opacity-60"
+        >
+          {sending ? "送信中..." : "スナップショット送信"}
+        </button>
+      </div>
 
       <div
         className="bg-white shadow mt-4"

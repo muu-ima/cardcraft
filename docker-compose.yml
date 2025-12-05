@@ -1,19 +1,30 @@
-version: "3.9"
 services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://card_user:card_pass@db:5432/card_db
+    depends_on:
+      - db
+
   frontend:
     build: ./frontend
-    container_name: cardcraft-frontend
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
     depends_on:
       - backend
 
-  backend:
-    build: ./backend
-    container_name: cardcraft-backend
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: card_db
+      POSTGRES_USER: card_user
+      POSTGRES_PASSWORD: card_pass
     ports:
-      - "8000:8000"
+      - "5432:5432"     # 開発用。外から繋がないなら消してもOK
     volumes:
-      - ./backend:/app
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
