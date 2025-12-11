@@ -1,120 +1,183 @@
-# 🎴 Cardcraft
+Cardcraft — 名刺スナップショットエディタ
 
-Next.js + FastAPI + Docker で動く **名刺デザイン用のミニ Web エディタ** です。  
-PNG テンプレート画像の上にテキストを重ねて、ブラウザ上でレイアウト調整し、そのまま画像としてダウンロードできます。
+Next.js（フロントエンド） + FastAPI（バックエンド） + Docker の
+名刺デザイン編集・保存・一覧管理ツール です。
 
-> 「まずはローカル Docker だけで動く、個人向けの名刺エディタサービス」を目指したプロジェクト。
+PNG テンプレート画像の上にテキストを配置し、
+スナップショットとして保存 → 一覧 → 編集 → 削除まで行えます。
 
----
+目標は「ローカルでもクラウドでも動く、軽量で拡張しやすい名刺デザインエディタ」。
 
-## ✨ 今できること（MVP）
+✨ 現在できること（MVP 完成）
+🖋 名刺エディタ /editor?id={id}
 
-- 名刺テンプレート画像（1600×800）を読み込み
-- 名前テキストを入力（最大 9 文字）
-- テキストをドラッグで好きな位置に配置
-- キャンバスは 2:1 の名刺比率（800×400）で表示
-- キャンバスをそのまま PNG としてダウンロード（ブラウザ側で生成）
+名前テキストの入力
 
-今はフロントエンド中心の **初期テスト版** ですが、  
-今後 FastAPI バックエンドと連携して、デザインの保存・復元・高解像度出力などを追加予定です。
+テキスト位置（x, y）の調整
 
----
+テンプレート画像の表示（1600×800）
 
-## 🛠 技術スタック
+即時プレビュー
 
-### Frontend
+PNG としてローカルへダウンロード
 
-- **Next.js 14 (App Router)**
-- **TypeScript**
-- **React Konva**（キャンバス描画）
-- **Tailwind CSS**
-- Node.js 20.x
+「更新する」ボタンで FastAPI の
+PUT /cards/{id} を叩き DB 更新
 
-`frontend/` ディレクトリ配下に配置。
+🗂 スナップショット一覧 /cards
 
-### Backend
+FastAPI の DB に保存されたデザイン一覧。
 
-- **FastAPI**
-- **Uvicorn**
-- （今はシンプルな `GET /` のみ実装）
+ID / 名前 / テンプレート名 / 位置（x, y）
 
-`backend/` ディレクトリ配下に配置。
+「編集」→ エディタへ遷移
 
-### Dev / Infra
+「削除」 → DELETE /cards/{id}
 
-- **Docker / Docker Compose**
-- WSL2 (Ubuntu) 上で開発
+「新しい名刺を作る」→ 新規スナップショット作成（POST /snapshot）
 
----
+🛠 技術スタック
+Frontend（Next.js）
 
-## 📁 ディレクトリ構成（ざっくり）
+Next.js 14 (App Router)
 
-```text
+TypeScript
+
+React Hooks（useCards カスタムフック）
+
+Tailwind CSS
+
+Node.js 20.x
+→ frontend/ に配置
+
+Backend（FastAPI）
+
+FastAPI + SQLModel
+
+PostgreSQL
+
+Uvicorn
+
+CRUD 完備：
+
+POST /snapshot
+
+GET /cards
+
+GET /cards/{id}
+
+PUT /cards/{id}
+
+DELETE /cards/{id}
+
+→ backend/ に配置
+
+Infra / Dev
+
+Docker / Docker Compose
+
+WSL2 (Ubuntu)
+
+ローカル開発 & Docker 両対応
+
+📁 ディレクトリ構成（最新版）
 cardcraft/
-  backend/              # FastAPI アプリ
-    main.py             # FastAPI エントリポイント
-    requirements.txt    # Python 依存パッケージ
-    Dockerfile          # backend 用 Dockerfile
+  backend/
+    db.py                # DB 初期化 / Session
+    models.py            # SQLModel (Card)
+    main.py              # FastAPI エンドポイント
+    requirements.txt
+    Dockerfile
 
-  frontend/             # Next.js アプリ
+  frontend/
     app/
-      editor/page.tsx   # 名刺エディタのメインページ
-      ...
+      editor/page.tsx    # 名刺エディタ
+      cards/page.tsx     # スナップショット一覧
+      layout.tsx
+      globals.css
+    hooks/
+      useCards.ts        # CRUD カスタムフック
     public/
-      cocco-bg-11.png   # テンプレート画像
-    package.json
-    Dockerfile          # frontend 用 Dockerfile
+      templates/...       # 背景テンプレート画像
+    .env.local
+    Dockerfile
 
-  docker-compose.yml    # front + back をまとめて起動する Compose 設定
+  docker-compose.yml      # front + back + db をまとめて起動
 
-🚀 起動方法
+🚀 起動方法（Docker）
+前提
 
-前提：Docker / Docker Compose がインストール済み
+Docker / Docker Compose がインストール済み
 
 cd cardcraft
 docker compose up --build
 
-起動後：
+起動後
+役割	URL
+フロントエンド	http://localhost:3000
 
-フロントエンド: http://localhost:3000
+名刺エディタ	http://localhost:3000/editor?id=3
 
-/editor にアクセスすると名刺エディタ画面
+スナップショット一覧	http://localhost:3000/cards
 
-バックエンド: http://localhost:8000
+バックエンド	http://localhost:8000
 
-GET / で {"message": "FastAPI running!"} が返る動作確認用
+DB	PostgreSQL (compose 内で起動)
 
-止めるときは Ctrl + C で停止、必要なら
+停止：
 
 docker compose down
 
-🧑‍💻 開発モードで動かす（Docker なし）
-Frontend（Next.js）
+🧑‍💻 開発モード（Docker なし）
+フロント（Next.js）
 cd frontend
 npm install
 npm run dev
 
 
 http://localhost:3000
- で起動
 
-app/editor/page.tsx を編集するとエディタ画面が更新されます
+（ページ編集は即反映）
 
-Backend（FastAPI）
+バックエンド（FastAPI）
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows の場合: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
+
 http://localhost:8000
- で API 起動
+ で起動
 
-🧱 機能メモ / 今後の TODO
+🔧 API 仕様（FastAPI）
+メソッド	エンドポイント	役割
+POST	/snapshot	新規スナップショットを保存
+GET	/cards	全件一覧
+GET	/cards/{id}	単体取得
+PUT	/cards/{id}	更新
+DELETE	/cards/{id}	削除
 
- Docker で Next.js + FastAPI の最小構成
+スキーマ：
 
- PNG テンプレート上でテキストをドラッグ移動
+CardBase（name, x, y, template）
 
- 名刺キャンバスを PNG ダウンロード
+CardCreate
+
+CardUpdate
+
+CardRead（id 付き）
+
+🪝 useCards フック（フロントの要）
+
+Next.js 側の CRUD ロジックを 1 つにまとめたカスタムフック。
+
+const {
+  cards,
+  loading,
+  error,
+  createCard,
+  updateCard,
+  deleteCard,
+  refetch
+} = useCards();
